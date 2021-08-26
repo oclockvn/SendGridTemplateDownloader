@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using SendGridManager;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -15,19 +16,23 @@ namespace SendGridTemplateDownloader
             Console.Write("Enter subscription: ");
             var subscription = Console.ReadLine().Trim();
 
-            var downloadManager = sp.GetRequiredService<ISendGridDownloadService>();
-            var result = await downloadManager.GetAllTemplatesAsync(subscription);
+            var downloadService = sp.GetRequiredService<ISendGridDownloadService>();
+            var reportService = sp.GetRequiredService<ISendGridReportService>();
+
+            var result = await downloadService.GetAllTemplatesAsync(subscription);
 
             if (result == null || result.Count == 0)
             {
-                Console.WriteLine("No templtes found");
+                Console.WriteLine("No templates found");
                 return;
             }
 
             Console.WriteLine($"Found {result.Count} templates:");
             Console.WriteLine(string.Join(Environment.NewLine, result.Select(t => t.Name)));
 
-            Console.Write("Enter template name to fetch: ");
+            await reportService.ReportTemplatesAsync(result);
+
+            Console.Write("Enter template name to fetch ('all' to get all): ");
             var templateName = Console.ReadLine();
 
             if (string.IsNullOrWhiteSpace(templateName))
@@ -36,6 +41,23 @@ namespace SendGridTemplateDownloader
                 return;
             }
 
+            if (templateName == "all")
+            {
+                foreach (var name in result.Select(r => r.Name))
+                {
+                    await DownloadAndReportAsync(name, subscription, result, reportService, downloadService);
+                }
+            }
+            else
+            {
+                await DownloadAndReportAsync(templateName, subscription, result, reportService, downloadService);
+            }
+
+            Console.WriteLine("Done!");
+        }
+
+        static async Task DownloadAndReportAsync(string templateName, string subscription, List<TemplateInfo> result, ISendGridReportService reportService, ISendGridDownloadService downloadService)
+        {
             var templateId = result.FirstOrDefault(t => t.Name == templateName.Trim())?.Id;
             if (string.IsNullOrWhiteSpace(templateId))
             {
@@ -43,12 +65,10 @@ namespace SendGridTemplateDownloader
                 return;
             }
 
-            var version = await downloadManager.GetTemplateAsync(subscription, templateId);
-            var reportService = sp.GetRequiredService<ISendGridReportService>();
+            Console.WriteLine($"Downloading template {templateName}...");
+            var version = await downloadService.GetTemplateAsync(subscription, templateId);
 
-            await reportService.ReportTemplateAsync(version.ActiveVersion);
-
-            Console.WriteLine("Done!");
+            await reportService.ReportTemplateAsync(version);
         }
 
         static IServiceProvider Setup()

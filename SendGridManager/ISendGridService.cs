@@ -14,6 +14,6 @@ namespace SendGridManager
     {
         Task<string> ReportTemplatesAsync(List<TemplateInfo> templates);
 
-        Task<string> ReportTemplateAsync(TemplateVersionInfo version);
+        Task<string> ReportTemplateAsync(TemplateInfo version);
     }
 }

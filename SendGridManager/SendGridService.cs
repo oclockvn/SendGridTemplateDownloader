@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -32,7 +34,7 @@ namespace SendGridManager
                 throw new ArgumentException("Base address has not been set");
             }
 
-            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", subscription);
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", subscription.Trim());
 
             _initialized = true;
         }
@@ -78,12 +80,47 @@ namespace SendGridManager
     {
         public async Task<string> ReportTemplatesAsync(List<TemplateInfo> templates)
         {
-            throw new NotImplementedException();
+            if (templates == null || templates.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var headers = new[] { "Template Id", "Template Name", "Subject" }.ToCsvLine();
+            var body = templates.Select(t => new []{ t.Id, t.Name, t.ActiveVersion?.Subject })
+                .Select(s => s.ToCsvLine())
+                .ToList();
+
+            var csv = headers + Environment.NewLine + string.Join(Environment.NewLine, body);
+
+            var fullPath = $"result-{DateTime.Now:yyyyMMddhhmmssffff}.csv";
+            await File.WriteAllTextAsync(fullPath, csv);
+
+            return fullPath;
         }
 
-        public async Task<string> ReportTemplateAsync(TemplateVersionInfo version)
+        public async Task<string> ReportTemplateAsync(TemplateInfo version)
         {
-            throw new NotImplementedException();
+            if (version == null || version.ActiveVersion == null)
+            {
+                return string.Empty;
+            }
+
+            var folder = version.Name.NormalizeFolderName();
+
+            // try to create a folder if not exist
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+
+            // not to care about the existing file, just make a unique name
+            var unique = DateTime.Now.ToString("yyyyMMddThhmmssfff");
+            var htmlPath = Path.Combine(folder, $"{folder}-{unique}.html");
+            var textPath = Path.Combine(folder, $"{folder}-{unique}.txt");
+            await File.WriteAllTextAsync(htmlPath, version.ActiveVersion.HtmlContent);
+            await File.WriteAllTextAsync(textPath, version.ActiveVersion.PlainContent);
+
+            return htmlPath;
         }
     }
 }
