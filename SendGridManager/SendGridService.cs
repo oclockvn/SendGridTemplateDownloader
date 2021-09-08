@@ -105,7 +105,7 @@ namespace SendGridManager
                 return string.Empty;
             }
 
-            var folder = version.Name.NormalizeFolderName();
+            var folder = Path.Combine("Templates", version.Name.NormalizeFolderName());
 
             // try to create a folder if not exist
             if (!Directory.Exists(folder))
