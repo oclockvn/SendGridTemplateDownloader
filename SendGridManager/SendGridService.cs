@@ -105,7 +105,7 @@ namespace SendGridManager
                 return string.Empty;
             }
 
-            var folder = Path.Combine("Templates", version.Name.NormalizeFolderName());
+            var folder = "Templates";
 
             // try to create a folder if not exist
             if (!Directory.Exists(folder))
@@ -114,9 +114,9 @@ namespace SendGridManager
             }
 
             // not to care about the existing file, just make a unique name
-            var unique = DateTime.Now.ToString("yyyyMMddThhmmssfff");
-            var htmlPath = Path.Combine(folder, $"{folder}-{unique}.html");
-            var textPath = Path.Combine(folder, $"{folder}-{unique}.txt");
+            var unique = version.Name.NormalizeFolderName() + "-" + DateTime.Now.ToString("yyyyMMddThhmmssfff");
+            var htmlPath = Path.Combine(folder, $"{unique}.html");
+            var textPath = Path.Combine(folder, $"{unique}.txt");
             await File.WriteAllTextAsync(htmlPath, version.ActiveVersion.HtmlContent);
             await File.WriteAllTextAsync(textPath, version.ActiveVersion.PlainContent);
 
