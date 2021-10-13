@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text;
 
 namespace SendGridManager
 {
@@ -73,6 +75,70 @@ namespace SendGridManager
             var result = System.Text.Json.JsonSerializer.Deserialize<TemplateInfo>(body);
 
             return result;
+        }
+
+
+        public async Task<string> TransferTemplate(string fromApiKey, string toApiKey, string templateId)
+        {
+            TemplateInfo templateInfo = await GetTemplateAsync(fromApiKey, templateId).ConfigureAwait(false);
+            if (templateInfo == null)
+            {
+                return null;
+            }
+
+            _initialized = false;
+            EnsureClient(toApiKey);
+            _initialized = false;
+
+            var serializeOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            };
+
+            var createTemplate = new CreateTemplate
+            {
+                Name = templateInfo.Name,
+            };
+
+            // create the template
+            var jsonString = JsonSerializer.Serialize(createTemplate, serializeOptions);
+            var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync("templates", content).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+            var template = await response.Content.ReadAsStringAsync();
+            var newTemplateInfo = System.Text.Json.JsonSerializer.Deserialize<TemplateInfo>(template);
+
+            var createVersion = new CreateVersion
+            {
+                Name = templateInfo.ActiveVersion.Name,
+                HtmlContent = templateInfo.ActiveVersion.HtmlContent,
+                PlainContent = templateInfo.ActiveVersion.PlainContent,
+                Subject = templateInfo.ActiveVersion.Subject,
+            };
+
+            // add the version
+            jsonString = JsonSerializer.Serialize(createVersion, serializeOptions);
+            content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+            response = await _httpClient.PostAsync($"templates/{newTemplateInfo.Id}/versions", content).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            // activate the template version
+            var version = await response.Content.ReadAsStringAsync();
+            var templateVersionInfo = System.Text.Json.JsonSerializer.Deserialize<TemplateVersionInfo>(version);
+            response = await _httpClient.PostAsync($"templates/{newTemplateInfo.Id}/versions/{templateVersionInfo.Id}/activate", content).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return newTemplateInfo.Id;
         }
     }
 
