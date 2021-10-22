@@ -76,14 +76,14 @@ namespace SendGridTemplateDownloader
             }
             else
             {
-                var newTemplateId = await downloadService.TransferTemplate(subscription, toApiKey, templateId);
-                if (string.IsNullOrEmpty(newTemplateId))
+                var results = await downloadService.TransferTemplateAsync(subscription, toApiKey, templateId);
+                if (string.IsNullOrEmpty(results.newTemplateId))
                 {
-                    Console.WriteLine($"Failed to transfer template {templateName}:{templateId}");
+                    Console.WriteLine($"Failed to transfer template {templateName}:{templateId} - {results.message}");
                 }
                 else
                 {
-                    Console.WriteLine($"Transferred template {templateName}:{templateId} to {newTemplateId}");
+                    Console.WriteLine($"Transferred template {templateName}:{templateId} to {results.newTemplateId}");
                 }
             }
         }

@@ -78,12 +78,12 @@ namespace SendGridManager
         }
 
 
-        public async Task<string> TransferTemplate(string fromApiKey, string toApiKey, string templateId)
+        public async Task<(string newTemplateId, string message)> TransferTemplateAsync(string fromApiKey, string toApiKey, string templateId)
         {
             TemplateInfo templateInfo = await GetTemplateAsync(fromApiKey, templateId).ConfigureAwait(false);
             if (templateInfo == null)
             {
-                return null;
+                return new(null, $"Template was not found");
             }
 
             _initialized = false;
@@ -107,7 +107,7 @@ namespace SendGridManager
             var response = await _httpClient.PostAsync("templates", content).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return new(null, "Error occurred creating the template");
             }
             var template = await response.Content.ReadAsStringAsync();
             var newTemplateInfo = System.Text.Json.JsonSerializer.Deserialize<TemplateInfo>(template);
@@ -126,7 +126,7 @@ namespace SendGridManager
             response = await _httpClient.PostAsync($"templates/{newTemplateInfo.Id}/versions", content).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return new(null, "Error occurred adding a version");
             }
 
             // activate the template version
@@ -135,10 +135,10 @@ namespace SendGridManager
             response = await _httpClient.PostAsync($"templates/{newTemplateInfo.Id}/versions/{templateVersionInfo.Id}/activate", content).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return new (null, "Error occurred activating the template version");
             }
 
-            return newTemplateInfo.Id;
+            return new(newTemplateInfo.Id, null);
         }
     }
 

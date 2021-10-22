@@ -9,7 +9,7 @@ namespace SendGridManager
 
         Task<TemplateInfo> GetTemplateAsync(string subscription, string templateId);
 
-        Task<string> TransferTemplate(string fromApiKey, string toApiKey, string templateId);
+        Task<(string newTemplateId, string message)> TransferTemplateAsync(string fromApiKey, string toApiKey, string templateId);
     }
 
     public interface ISendGridReportService
