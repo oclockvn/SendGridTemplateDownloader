@@ -35,6 +35,9 @@ namespace SendGridTemplateDownloader
             Console.Write("Enter template name to fetch ('all' to get all): ");
             var templateName = Console.ReadLine();
 
+            Console.Write("Enter account API key to transfer to (Optional): ");
+            var toApiKey = Console.ReadLine();
+
             if (string.IsNullOrWhiteSpace(templateName))
             {
                 Console.WriteLine("Thank you!");
@@ -45,18 +48,18 @@ namespace SendGridTemplateDownloader
             {
                 foreach (var name in result.Select(r => r.Name))
                 {
-                    await DownloadAndReportAsync(name, subscription, result, reportService, downloadService);
+                    await DownloadAndReportAsync(name, subscription, result, reportService, downloadService, toApiKey);
                 }
             }
             else
             {
-                await DownloadAndReportAsync(templateName, subscription, result, reportService, downloadService);
+                await DownloadAndReportAsync(templateName, subscription, result, reportService, downloadService, toApiKey);
             }
 
             Console.WriteLine("Done!");
         }
 
-        static async Task DownloadAndReportAsync(string templateName, string subscription, List<TemplateInfo> result, ISendGridReportService reportService, ISendGridDownloadService downloadService)
+        static async Task DownloadAndReportAsync(string templateName, string subscription, List<TemplateInfo> result, ISendGridReportService reportService, ISendGridDownloadService downloadService, string toApiKey = null)
         {
             var templateId = result.FirstOrDefault(t => t.Name == templateName.Trim())?.Id;
             if (string.IsNullOrWhiteSpace(templateId))
@@ -65,10 +68,24 @@ namespace SendGridTemplateDownloader
                 return;
             }
 
-            Console.WriteLine($"Downloading template {templateName}...");
-            var version = await downloadService.GetTemplateAsync(subscription, templateId);
-
-            await reportService.ReportTemplateAsync(version);
+            if (string.IsNullOrEmpty(toApiKey))
+            {
+                Console.WriteLine($"Downloading template {templateName}...");
+                var version = await downloadService.GetTemplateAsync(subscription, templateId);
+                await reportService.ReportTemplateAsync(version);
+            }
+            else
+            {
+                var results = await downloadService.TransferTemplateAsync(subscription, toApiKey, templateId);
+                if (string.IsNullOrEmpty(results.newTemplateId))
+                {
+                    Console.WriteLine($"Failed to transfer template {templateName}:{templateId} - {results.message}");
+                }
+                else
+                {
+                    Console.WriteLine($"Transferred template {templateName}:{templateId} to {results.newTemplateId}");
+                }
+            }
         }
 
         static IServiceProvider Setup()
