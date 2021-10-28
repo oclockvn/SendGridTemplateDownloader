@@ -50,5 +50,38 @@ namespace SendGridManager
         [JsonPropertyName("html_content")]
         public string HtmlContent { get; set; }
     }
+
+    public class CreateTemplate
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("generation")]
+        public string Generation => "dynamic";
+    }
+
+    public class CreateVersion
+    {
+        [JsonPropertyName("active")]
+        public int Active => 1;
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("html_content")]
+        public string HtmlContent { get; set; }
+
+        [JsonPropertyName("plain_content")]
+        public string PlainContent { get; set; }
+
+        [JsonPropertyName("generate_plain_content")]
+        public bool GeneratePlainContent => true;
+
+        [JsonPropertyName("subject")]
+        public string Subject { get; set; }
+
+        [JsonPropertyName("editor")]
+        public string Editor => "design";
+    }
 }
 
