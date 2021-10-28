@@ -13,8 +13,14 @@ namespace SendGridTemplateDownloader
         {
             var sp = Setup();
 
-            Console.Write("Enter subscription: ");
+            Console.Write("Enter subscription key: ");
             var subscription = Console.ReadLine().Trim();
+
+            Console.Write("Enter subscription key to transfer to (Optional): ");
+            var toApiKey = Console.ReadLine();
+
+            Console.Write("Enter output folder: ");
+            var output = Console.ReadLine().Trim();
 
             var downloadService = sp.GetRequiredService<ISendGridDownloadService>();
             var reportService = sp.GetRequiredService<ISendGridReportService>();
@@ -28,38 +34,77 @@ namespace SendGridTemplateDownloader
             }
 
             Console.WriteLine($"Found {result.Count} templates:");
-            Console.WriteLine(string.Join(Environment.NewLine, result.Select(t => t.Name)));
+            for (var i = 0; i < result.Count; i++)
+            {
+                Console.WriteLine($"{i} - {result[i].Name}");
+            }
 
             await reportService.ReportTemplatesAsync(result);
 
-            Console.Write("Enter template name to fetch ('all' to get all): ");
-            var templateName = Console.ReadLine();
+            Console.WriteLine("Use the pattern \"i:1,2,4\" to get template at index 1, 2 and 4. Without \"i:\", everything else is treated as normal template name");
+            Console.Write("Enter template name or indexes to fetch ('-1' to fetch all): ");
+            var command = Console.ReadLine();
 
-            Console.Write("Enter account API key to transfer to (Optional): ");
-            var toApiKey = Console.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(templateName))
+            if (string.IsNullOrWhiteSpace(command))
             {
                 Console.WriteLine("Thank you!");
                 return;
             }
 
-            if (templateName == "all")
+            var names = GetTemplateNames(command, result);
+            foreach (var name in names)
             {
-                foreach (var name in result.Select(r => r.Name))
-                {
-                    await DownloadAndReportAsync(name, subscription, result, reportService, downloadService, toApiKey);
-                }
-            }
-            else
-            {
-                await DownloadAndReportAsync(templateName, subscription, result, reportService, downloadService, toApiKey);
+                await DownloadAndReportAsync(output, name, subscription, result, reportService, downloadService, toApiKey);
             }
 
             Console.WriteLine("Done!");
         }
 
-        static async Task DownloadAndReportAsync(string templateName, string subscription, List<TemplateInfo> result, ISendGridReportService reportService, ISendGridDownloadService downloadService, string toApiKey = null)
+        static IEnumerable<string> GetTemplateNames(string command, List<TemplateInfo> templates)
+        {
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return null;
+            }
+
+            if (command == "-1") // get all
+            {
+                return templates.Select(x => x.Name);
+            }
+
+            if (command.StartsWith("i:")) // get by indexes
+            {
+                var indexes = command
+                    .Substring(2) // i:
+                    .Split(',') // 1,2,3
+                    .Select(x => int.TryParse(x, out var i) ? i : -1)
+                    .Where(x => x > -1) // remove invalid number
+                    .ToList();
+
+                var result = new List<string>();
+                foreach (var i in indexes)
+                {
+                    if (i <= templates.Count)
+                    {
+                        result.Add(templates[i].Name);
+                    }
+                }
+
+                return result;
+            }
+
+            // normal template name
+            return templates.Where(t => t.Name == command).Select(x => x.Name);
+        }
+
+        static async Task DownloadAndReportAsync(
+            string output,
+            string templateName,
+            string subscription,
+            List<TemplateInfo> result,
+            ISendGridReportService reportService,
+            ISendGridDownloadService downloadService,
+            string toApiKey = null)
         {
             var templateId = result.FirstOrDefault(t => t.Name == templateName.Trim())?.Id;
             if (string.IsNullOrWhiteSpace(templateId))
@@ -72,7 +117,7 @@ namespace SendGridTemplateDownloader
             {
                 Console.WriteLine($"Downloading template {templateName}...");
                 var version = await downloadService.GetTemplateAsync(subscription, templateId);
-                await reportService.ReportTemplateAsync(version);
+                await reportService.ReportTemplateAsync(output, version);
             }
             else
             {

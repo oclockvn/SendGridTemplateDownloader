@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Threading.Tasks;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace SendGridManager
 {
@@ -57,7 +57,7 @@ namespace SendGridManager
                 return null;
             }
 
-            var result = System.Text.Json.JsonSerializer.Deserialize<TemplateResult>(body);
+            var result = JsonSerializer.Deserialize<TemplateResult>(body);
 
             return result?.Templates;
         }
@@ -72,7 +72,7 @@ namespace SendGridManager
             }
 
             var body = await response.Content.ReadAsStringAsync();
-            var result = System.Text.Json.JsonSerializer.Deserialize<TemplateInfo>(body);
+            var result = JsonSerializer.Deserialize<TemplateInfo>(body);
 
             return result;
         }
@@ -110,7 +110,7 @@ namespace SendGridManager
                 return new(null, "Error occurred creating the template");
             }
             var template = await response.Content.ReadAsStringAsync();
-            var newTemplateInfo = System.Text.Json.JsonSerializer.Deserialize<TemplateInfo>(template);
+            var newTemplateInfo = JsonSerializer.Deserialize<TemplateInfo>(template);
 
             var createVersion = new CreateVersion
             {
@@ -131,11 +131,11 @@ namespace SendGridManager
 
             // activate the template version
             var version = await response.Content.ReadAsStringAsync();
-            var templateVersionInfo = System.Text.Json.JsonSerializer.Deserialize<TemplateVersionInfo>(version);
+            var templateVersionInfo = JsonSerializer.Deserialize<TemplateVersionInfo>(version);
             response = await _httpClient.PostAsync($"templates/{newTemplateInfo.Id}/versions/{templateVersionInfo.Id}/activate", content).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                return new (null, "Error occurred activating the template version");
+                return new(null, "Error occurred activating the template version");
             }
 
             return new(newTemplateInfo.Id, null);
@@ -152,7 +152,7 @@ namespace SendGridManager
             }
 
             var headers = new[] { "Template Id", "Template Name", "Subject" }.ToCsvLine();
-            var body = templates.Select(t => new []{ t.Id, t.Name, t.ActiveVersion?.Subject })
+            var body = templates.Select(t => new[] { t.Id, t.Name, t.ActiveVersion?.Subject })
                 .Select(s => s.ToCsvLine())
                 .ToList();
 
@@ -164,14 +164,14 @@ namespace SendGridManager
             return fullPath;
         }
 
-        public async Task<string> ReportTemplateAsync(TemplateInfo version)
+        public async Task<string> ReportTemplateAsync(string dir, TemplateInfo version)
         {
             if (version == null || version.ActiveVersion == null)
             {
                 return string.Empty;
             }
 
-            var folder = "Templates";
+            var folder = Path.Combine("Templates", dir ?? string.Empty);
 
             // try to create a folder if not exist
             if (!Directory.Exists(folder))
@@ -179,14 +179,26 @@ namespace SendGridManager
                 Directory.CreateDirectory(folder);
             }
 
-            // not to care about the existing file, just make a unique name
-            var unique = version.Name.NormalizeFolderName() + "-" + DateTime.Now.ToString("yyyyMMddThhmmssfff");
-            var htmlPath = Path.Combine(folder, $"{unique}.html");
-            var textPath = Path.Combine(folder, $"{unique}.txt");
-            await File.WriteAllTextAsync(htmlPath, version.ActiveVersion.HtmlContent);
-            await File.WriteAllTextAsync(textPath, version.ActiveVersion.PlainContent);
+            // attempt to use name as file name
+            return await WriteFileAsync(folder, version.Name, version.ActiveVersion);
+        }
 
-            return htmlPath;
+        private async Task<string> WriteFileAsync(string folder, string filename, TemplateVersionInfo templateVersion)
+        {
+            try
+            {
+                var name = filename.IsValidFileName() ? filename : filename.CorrectFileName();
+
+                var path = Path.Combine(folder, name);
+                await File.WriteAllTextAsync(path + ".html", templateVersion.HtmlContent);
+                await File.WriteAllTextAsync(path + ".txt", templateVersion.PlainContent);
+
+                return path;
+            }
+            catch (Exception) // something went wrong when writing file
+            {
+                return string.Empty;
+            }
         }
     }
 }
