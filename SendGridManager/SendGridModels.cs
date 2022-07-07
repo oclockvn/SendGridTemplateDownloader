@@ -49,6 +49,9 @@ namespace SendGridManager
 
         [JsonPropertyName("html_content")]
         public string HtmlContent { get; set; }
+
+        [JsonPropertyName("test_data")]
+        public string TestData { get; set; }
     }
 
     public class CreateTemplate
@@ -83,5 +86,34 @@ namespace SendGridManager
         [JsonPropertyName("editor")]
         public string Editor => "design";
     }
-}
 
+    public class Metadata
+    {
+        [JsonPropertyName("template_id")]
+        public string TemplateId { get; set; }
+
+        [JsonPropertyName("template_name")]
+        public string TemplateName { get; set; }
+
+        [JsonPropertyName("version_id")]
+        public string VersionId { get; set; }
+
+        [JsonPropertyName("version_name")]
+        public string VersionName { get; set; }
+
+        [JsonPropertyName("active")]
+        public int Active { get; set; } = 1;
+
+        [JsonPropertyName("subject")]
+        public string Subject { get; set; }
+
+        [JsonPropertyName("updated_at")]
+        public string UpdatedAt { get; set; }
+
+        [JsonPropertyName("html_content_sha256")]
+        public string HtmlContentHashed { get; set; }
+
+        [JsonPropertyName("test_data_sha256")]
+        public string TestDataHashed { get; set; }
+    }
+}
