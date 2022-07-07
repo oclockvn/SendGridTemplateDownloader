@@ -192,9 +192,13 @@ namespace SendGridManager
             try
             {
                 var name = filename.IsValidFileName() ? filename : filename.CorrectFileName();
-
                 var path = Path.Combine(folder, name);
-                await File.WriteAllTextAsync(path + ".template_content.html", templateVersion.HtmlContent);
+                var dir = Directory.CreateDirectory(path);
+                path = dir.FullName;
+
+                string createPath(string file) => Path.Combine(path, file);
+
+                await File.WriteAllTextAsync(createPath("html_content.html"), templateVersion.HtmlContent);
                 var metadata = new Metadata
                 {
                     Active = 1,
@@ -203,17 +207,17 @@ namespace SendGridManager
                     HtmlContentHashed = templateVersion.HtmlContent.ComputeSha256Hash(),
                     Subject = templateVersion.Subject,
                     TestDataHashed = templateVersion.TestData.ComputeSha256Hash(),
-                    UpdatedAt = DateTime.Now.ToString("yyyy-MM-ddThh:mm:ss"),
+                    UpdatedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
                     VersionId = templateVersion.Id,
                     VersionName = templateVersion.Name,
                 };
 
-                await File.WriteAllTextAsync(path + ".metadata.json", JsonSerializer.Serialize(metadata, typeof(Metadata), new JsonSerializerOptions
+                await File.WriteAllTextAsync(createPath("metadata.json"), JsonSerializer.Serialize(metadata, typeof(Metadata), new JsonSerializerOptions
                 {
                     WriteIndented = true,
                     Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
                 }));
-                await File.WriteAllTextAsync(path + ".test_data.json", templateVersion.TestData ?? string.Empty);
+                await File.WriteAllTextAsync(createPath("test_data.json"), templateVersion.TestData ?? string.Empty);
 
                 return path;
             }
