@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -180,24 +181,46 @@ namespace SendGridManager
             }
 
             // attempt to use name as file name
-            return await WriteFileAsync(folder, version.Name, version.ActiveVersion);
+            return await WriteFileAsync(folder, version);
         }
 
-        private async Task<string> WriteFileAsync(string folder, string filename, TemplateVersionInfo templateVersion)
+        private async Task<string> WriteFileAsync(string folder, TemplateInfo template)
         {
+            var templateVersion = template.ActiveVersion;
+            var filename = template.Name;
+
             try
             {
                 var name = filename.IsValidFileName() ? filename : filename.CorrectFileName();
 
                 var path = Path.Combine(folder, name);
-                await File.WriteAllTextAsync(path + ".html", templateVersion.HtmlContent);
-                await File.WriteAllTextAsync(path + ".txt", templateVersion.PlainContent);
+                await File.WriteAllTextAsync(path + ".template_content.html", templateVersion.HtmlContent);
+                var metadata = new Metadata
+                {
+                    Active = 1,
+                    TemplateId = template.Id,
+                    TemplateName = template.Name,
+                    HtmlContentHashed = templateVersion.HtmlContent.ComputeSha256Hash(),
+                    Subject = templateVersion.Subject,
+                    TestDataHashed = templateVersion.TestData.ComputeSha256Hash(),
+                    UpdatedAt = DateTime.Now.ToString("yyyy-MM-ddThh:mm:ss"),
+                    VersionId = templateVersion.Id,
+                    VersionName = templateVersion.Name,
+                };
+
+                await File.WriteAllTextAsync(path + ".metadata.json", JsonSerializer.Serialize(metadata, typeof(Metadata), new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                }));
+                await File.WriteAllTextAsync(path + ".test_data.json", templateVersion.TestData ?? string.Empty);
 
                 return path;
             }
-            catch (Exception) // something went wrong when writing file
+            catch (Exception e) // something went wrong when writing file
             {
-                return string.Empty;
+                Console.WriteLine(e.Message);
+                throw;
             }
         }
     }
